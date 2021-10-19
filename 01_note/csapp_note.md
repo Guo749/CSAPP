@@ -1759,7 +1759,200 @@ X86-64 CPU 包含了 16个 64位 寄存器
 
 
 
-> Instructions
+> **Instructions can operate on data of different size stored in the low-order bytes of the 16 registers**
+
+* Byte-level operations can access the least significant byte
+* 16-bit operations can access the least significant 2 bytes
+* 32-bit operations can access the least significant 4 bytes
+* 64-bit operations can access the whole register
+
+
+
+
+
+<img src="csapp_note.assets/image-20211019185013695.png" alt="image-20211019185013695" style="zoom:50%;" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 3.4.1 Operand Specifiers
+
+<img src="csapp_note.assets/image-20211019185207461.png" alt="image-20211019185207461" style="zoom:50%;" />
+
+
+
+指令中几种不同的操作数
+
+* immediate -> constant values $577
+* register --> $5
+* memory reference
+    * 因为我们认为内存是一个巨大的数组
+    * 我们采用数组形式access
+        * Mb[Addr] 表示 a reference to the b-byte value store in memory starting at address Addr
+
+
+
+为啥要有这么复杂的 内存reference格式？
+
+* they are useful when referencing array and structure elements
+
+
+
+
+
+
+
+### 3.4.2 Data Movement Instructions
+
+
+
+> **Move class, 最简单的形式， 就是从一个地方拷贝到另外一个地方**
+
+
+
+<img src="csapp_note.assets/image-20211019185918917.png" alt="image-20211019185918917" style="zoom:50%;" />
+
+
+
+![image-20211019190043251](csapp_note.assets/image-20211019190043251.png)
+
+
+
+
+
+
+
+![image-20211019190153060](csapp_note.assets/image-20211019190153060.png)
+
+注意这个图片， 如果 move bytes 那么只动后面两个
+
+
+
+<img src="csapp_note.assets/image-20211019190341757.png" alt="image-20211019190341757" style="zoom:50%;" />
+
+
+
+> **MOVZ class 会将dest 的剩余数字全部填充为 0**
+
+
+
+
+
+> **MOVS class 会将剩下的数字填充 based on sign extension**
+
+
+
+![image-20211019190647726](csapp_note.assets/image-20211019190647726.png)
+
+
+
+
+
+
+
+
+
+
+
+### 3.4.3 Data Movement Example
+
+
+
+> **C code**
+
+```cpp
+long exchange(long* xp, long y){
+  long x = *xp;
+  *xp = y;
+  return x;
+}
+```
+
+
+
+> **Assembly Code**
+
+<img src="csapp_note.assets/image-20211019190904576.png" alt="image-20211019190904576" style="zoom:50%;" />
+
+
+
+
+
+**对上述 code 进行两点剖析**
+
+* 在 C中的pointer 实际上 deferencing a pointer involves 
+    * Copying that pointer into a register
+    * use this register in a memory reference
+* local variables such as X are often kept in registers rathre than stored in memory locations
+    * 因为 Register Access 通常比 Memory Locations 快很多
+
+
+
+
+
+### 3.4.4  Pushing and Poping Data
+
+
+
+> **The stack plays a vital role in the handling of procedure calls**
+
+<img src="csapp_note.assets/image-20211019191334041.png" alt="image-20211019191334041" style="zoom:50%;" />
+
+
+
+<img src="csapp_note.assets/image-20211019191425649.png" alt="image-20211019191425649" style="zoom:50%;" />
+
+
+
+注意
+
+* pushing involves decrementing the stack pointer
+    * 实际上分两步， 第一步 decrementing the stack pointer by 8
+    * then writing the value at the new top of tack address
+* poping involves reading from memory and incrementing the stack pointer
+
+
+
+> **pushq % rbp 和 下面两步相同**
+
+<img src="csapp_note.assets/image-20211019191650525.png" alt="image-20211019191650525" style="zoom:50%;" />
+
+
+
+
+
+> **popq %rax 和下面两步相同**
+
+<img src="csapp_note.assets/image-20211019191717346.png" alt="image-20211019191717346" style="zoom:50%;" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 3.5 Arithmetic and Logical Operations
+
+
+
+
+
+
 
 
 
