@@ -1333,6 +1333,7 @@ x * 14
 
 * 对涉及特别大的数字
 * 非常接近0 的数字
+* 表示起来很友好
 
 
 
@@ -1350,6 +1351,29 @@ x * 14
 
 ![image-20211019162403043](csapp_note.assets/image-20211019162403043.png)
 
+<img src="csapp_note.assets/image-20211027205324781.png" alt="image-20211027205324781" style="zoom:50%;" />
+
+
+
+
+
+
+
+当然如果我们就是这么表示， 考虑到有限长度的编码，那么十进制不能表示 $\frac{1}{3}$ 这种类型的数字
+
+* 只有增加数字才能够提高表示的精度
+
+
+
+
+
+
+
+```cpp
+M * 2 ^ E
+  
+```
+
 
 
 
@@ -1357,10 +1381,23 @@ x * 14
 ### 2.4.2 IEEE 浮点表示
 
 IEEE 采用 V = (-1) ^ s x M x 2 ^E
+$$
+(-1) ^ s * M * 2 ^E
+$$
+
+```shell
+M = 1111 0000 0000 0000 000 0
+1111 0000 0000 0000 000 0
+
+1.1011 * 2 ^ 3
+```
+
+
 
 * 符号 sign  s = 1 是负数， s = 0 是正数
 * 尾数 significand M 是一个二进制小数
 * 阶码 E 的作用是对浮点数加权
+    * 之所以有一个偏移量，是为了保证 exp 编码只需要以无符号数处理
 
 
 
@@ -1374,14 +1411,55 @@ IEEE 采用 V = (-1) ^ s x M x 2 ^E
 
 ![image-20211019162713731](csapp_note.assets/image-20211019162713731.png)
 
+```cpp
+
+denormalzie     2 ^ -149			2^-126(2^-1 + 2^-2 ... + 2 ^ -23)
+  
+  
+normalzie			2^-126							2^ 127   2^128)
+								lowerbound     upper bound  
+  						M = 1.0
+  						E = 1 - 127 = -126
+  
+  					E = 1111 1110  254 - 127 = 127
+  					M = 1.111111111
+  
+  M * 2 ^E
+```
 
 
-* 情况一 规格化的
+$$
+2 ^ {-126} * M = 2 ^ x \\
+M = x + 126 \\
+M = -130
+M = -4  \\
+2 ^ M \\
+
+X = -130 \\
+
+2 ^ {-4}
+$$
+
+
+
+
+
+
+
+**f 注意是二进制表示 小数**
+
+
+
+根据 exp 的值，被编码的值有三种情况
+
+* **情况一 规格化的**
     * 当 exp 的位模式 既不全为0， 也不为1
-    * E = e - Bias
-* 情况二 非规格化的值
+    * E = exp - Bias
+    * M 尾数定义为 1 + f
+* **情况二 非规格化的值**
     * 当 阶码全为 0  E = 1 - Bias
-* 特殊值
+    * M = f, 没有 1
+* **特殊值**
     * 当小数域为 0， 得到的值 有两种，或者无穷大，或者 Not a numbers
 
 
@@ -1444,7 +1522,7 @@ Mantissa = 1.01101 00 0000 0000 0000 0000
 
 
 
-
+![image-20211027210130506](csapp_note.assets/image-20211027210130506.png)
 
 
 
@@ -1486,9 +1564,89 @@ C 语言提供了两种不同的浮点数据类型
 
 
 
+> **舍入**
+
+在二进制中，我们会 舍入到最近的偶数
 
 
-## 2.5 总结
+
+对于十进制来说
+
+* 2.89499  can be rouded as 2.89
+* 2.8950001 -> 2.90
+* 2.895000 -> 刚好在一半，那么看保证最后一位是偶数，那么就向上舍入
+    * 2.90
+* 2.885000 -> 刚好一半，看看怎么样能保证是偶数，那么就向下舍入
+    * 2.88
+
+
+
+**对二进制类似**
+
+| 十进制          | 二进制   | 舍入结果 | 十进制         | 原因                               |
+| --------------- | -------- | -------- | -------------- | ---------------------------------- |
+| $2\frac{3}{32}$ | 10.00011 | 10.00    | 2              | 不到一半，正常四舍五入             |
+| $2\frac{3}{16}$ | 10.00110 | 10.01    | $2\frac{1}{4}$ | 超过一半，正常四舍五入             |
+| $2\frac{7}{8}$  | 10.11100 | 11.00    | 3              | 刚好一半，保证最后一位是偶数，向上 |
+| $2\frac{5}{8}$  | 10.10100 | 10.10    | $2\frac{1}{2}$ | 刚好一半，保证最后一位是偶数，向下 |
+
+
+
+具体分析为啥， 首先说我们想保留到小数点后两位
+
+* $2\frac{3}{32}$  观察想舍入的是 11， 那么结合前面1位0 发现 011 还没到111的一半，那么就直接抹掉
+* $2\frac{3}{16}$  观察想舍入的是110, 结合前面一位 0 因为110超过111一半，那么就直接向上四舍五入
+* $2\frac{7}{8}$   观察想舍入的是100， 结合前面一位1， 因为 100 正好一半，那就保证最后一位是偶数
+    * 如果变成 10.11 最后一位是奇数
+    * 所以只能向上进位 11.00
+* $2\frac{5}{8}$   观察100， 结合前面一位 0 ， 因为 100正好一半， 那么就保证最后一位是偶数
+    * 如果变成 10.11 那么最后一位好似奇数
+    * 所以只能
+    * 10.10 向下舍入
+
+
+
+
+
+
+
+## 2.5 浮点数加法
+
+
+$$
+(-1) ^ {s_1} M_12^{E_1} + (-1)^{s_2}M_22^{E_2} = (-1)^sM2^E
+$$
+其中注意
+
+* 假设 E1 > E2, 那么 s = s1 ^s2, M = M1 + M2, E = E1
+    * 如果 M 大于等于2， 把 M 右移动， 并增加 E的值
+    * 如果 M 小于1， 把 M 左移动k位， E减少k
+    * 如果E超出了范围，那么就溢出
+    * 把M舍入到frac的精度
+
+
+
+**基本性质**
+
+* 除了 inf 和 Nan 每个数字都有对应的倒数
+* 不满足结合律，因为舍入会造成精度损失
+    * (3.14+1e10)-1e10 = 0
+
+<img src="csapp_note.assets/image-20211028160913179.png" alt="image-20211028160913179" style="zoom:50%;" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 2.6 总结
 
 
 
@@ -1947,6 +2105,258 @@ long exchange(long* xp, long y){
 
 
 ## 3.5 Arithmetic and Logical Operations
+
+
+
+蛮多汇编指令有 variant 在 word size 比如
+
+* addb
+
+* addw
+
+* addl
+
+* addq
+
+    
+
+<img src="csapp_note.assets/image-20211026190031541.png" alt="image-20211026190031541" style="zoom:50%;" />
+
+
+
+
+
+### 3.5.1 Load 指令
+
+**当然 load 指令也有一些用处 当实施简单的加减法**
+
+```cpp
+long scale(long x, long y, long z){
+  long t = x + 4 * y + 12 * z;
+  return t;
+}
+```
+
+
+
+<img src="csapp_note.assets/image-20211026190253407.png" alt="image-20211026190253407" style="zoom:50%;" />
+
+
+
+
+
+
+
+### 3.5.2 Unary and Binary Operations
+
+第二组指令是 只有一个操作数 的 指令
+
+* This  operand can be either a register or a memory location
+
+```shell
+incq(%rsp) //这条指令让 stack 顶的元素 + 1
+```
+
+类似 x++, y--
+
+
+
+
+
+第三组指令是
+
+```shell
+subq %rax, %rdx
+实际上的作用是 %rdx - %rax
+英文语义是 subtract %rax from %rdx
+```
+
+
+
+同时对于 MOV 指令来说， 两个 oprand 不能同时是 memory location
+
+* 如果 destination 是 memory 那么 
+    * processor must read the value from the memory, perform the operation, and then write the result back to the memory
+
+
+
+
+
+### 3.5.3 Shift Operations
+
+<img src="csapp_note.assets/image-20211026191034818.png" alt="image-20211026191034818" style="zoom:50%;" />
+
+
+
+
+
+这个就是对应的优化
+
+
+
+
+
+
+
+## 3.6 Control
+
+对于代码执行流程的控制
+
+Machine code provides two basic low-level mechanisms for implementing contional behavior
+
+* it tests the data valeus and
+    * either alters the control flow
+    * or the data flow based on the results of these tests
+
+
+
+### 3.6.1 Condition Codes
+
+CPU 维护了一系列  single-bit condiiton code registers describing attributes of the most recent arithmetic or logical operations
+
+* CF: Carry Flag. The most recent  operation generated a carry out of the most significant bit
+    * 主要用来 检测 overflow for unsigned operations
+* ZF: Zero Flag, The most recent opeartion yielded zero
+* SF: Sign Flag. The most recent operation yielded a negative value
+* OF: Overflow flag. The most recent operation caused a two's complement overflow
+
+
+
+比如说 我们有这个计算 t = a + b
+
+那么这些寄存器会这样计算
+
+```shell
+ CF (unsigned) t < (unsigned) a			Unsigned Overflow
+ ZF (t == 0)												Zero
+ SF (t < 0)													Negative
+ OF (a < 0 == b < 0) && (t < 0 != a < 0) Sign Overflow
+```
+
+
+
+<img src="csapp_note.assets/image-20211026192016123.png" alt="image-20211026192016123" style="zoom:50%;" />
+
+
+
+
+
+
+
+### 3.6.3 Jump Instructions
+
+* 跳转指令通常被翻译为 一个 label ，跳到这个 label 这里
+
+
+
+C 语言中的 if-else 语句
+
+```cpp
+if(test-expr)
+  then-statement
+else
+  else-statement
+```
+
+
+
+**汇编会将其转换为如下的形式**
+
+```cpp
+t  = text-expr
+if(!t)
+	goto false;
+then-statement
+	goto done;
+false:
+	else-statement
+done:
+```
+
+
+
+
+
+
+
+
+
+### 3.6.6 用条件传送来实现条件分支
+
+实现条件的操作 传统来说是通过控制的方式
+
+* 如果正确，就走一条路
+* 反之，就是另外一条路
+
+一种可以替代的策略是 使用数据的条件转移
+
+* 实际上就是两种我都算出来，是哪个就拿哪个作为结果
+
+```cpp
+long absdiff(long x, long y){
+  long result;
+  if(x < y)
+    result = y - x;
+  else
+  	result = x - y;
+  return result
+}
+
+会被翻译为
+long cmovdiff(long x, long y){
+  long rval = y - x;
+  long eval = x - y;
+  long ntest = x >= y;
+  
+  if(ntest)	rval = eval;
+  return rval;
+}
+```
+
+
+
+
+
+之所以 使用数据的条件转移性能比较好，主要是因为 可以避免对于 处理器错误的惩罚
+
+* 现在处理器采用非常精密的分支预测逻辑来猜测每条指令是否会执行
+* 如果预测失败， 就会要求处理器丢掉它为该跳转指令后所有指令已做的工作，然后再从正确的位置开始去填充流水线
+
+
+
+
+
+
+
+### 3.6.8 Switch 语句
+
+可以根据一个整数的索引值 进行多重分支预测
+
+* 使用跳转表 jump table 使得实现更加高效
+
+<img src="csapp_note.assets/image-20211026200140927.png" alt="image-20211026200140927" style="zoom:50%;" />
+
+
+
+
+
+
+
+
+
+## 3.7 过程
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

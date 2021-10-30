@@ -129,7 +129,19 @@ Example usages:
     unix> ./fshow 0x15213243
     Floating point value 3.255334057e-26
     Bit Representation 0x15213243, sign = 0, exponent = 0x2a, fraction = 0x213243
-    Normalized.  +1.2593463659 X 2^(-85)
+    Normalized.  +1.2593463659 X 2^(-85)int isAsciiDigit(int x) {
+                                                //must in the form of 0x110000
+                                                //if start with 0xxx, ok with any number
+                                                int c = 0b110000;
+                                                int d = 0b1000;
+                                                int e = 0b110;
+                                                int maskX = x & (0b000110);
+                                                printf("%d\n", (c&x));
+                                                printf("%d\n", (d&x));
+                                                printf("%d\n", (maskX|e));
+
+                                                return (c&x) & ((!(d&x)) | ((d&x) & !(maskX | e)));
+                                        }
 
     linux> ./fshow 15213243
     Floating point value 2.131829405e-38
