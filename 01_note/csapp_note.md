@@ -2348,6 +2348,97 @@ long cmovdiff(long x, long y){
 
 
 
+Producure 是一种很重要的抽象，提供了一种封装代码的方式
+
+* 用一组制定的参数和一个可选的返回值实现了某种功能
+* 不同的编程语言中，过程的形式多种多样
+    * 函数 function
+    * 方法 Method
+    * Subroutine
+    * 初恋书 Handler
+
+
+
+
+
+**当然要提供对于过程的支持，需要有以下内容 （假设P call Q, Q return back to P**
+
+* 传递控制: 进入过程Q 之前， 程序计数器 必须被设置为 Q的代码的起始地址，然后在返回的时候，把程序计数器设置为P中调用Q后面的地址
+* 传递数据:P必须能够向Q提供一个或者多个参数， Q必须能够向P 返回一个值
+* 分配和释放内存: 在开始时，Q可能需要为局部变量分配空间，在返回前，又必须释放这些存储空间
+
+
+
+
+
+### 3.7.1 运行时栈的情况
+
+
+
+* 当 x86-64 过程需要的存储空间超过寄存器能够存放的大小时， 就会在栈上分配空间
+    * 这个过程被称为 过程 Stack Frame
+* 当然如果需要存储的参数不多，那么直接在 寄存器上分配
+
+<img src="csapp_note.assets/image-20211030190925758.png" alt="image-20211030190925758" style="zoom:50%;" />
+
+
+
+
+
+<img src="csapp_note.assets/image-20211030191055736.png" alt="image-20211030191055736" style="zoom:50%;" />
+
+
+
+
+
+
+
+### 3.7.4 栈上的局部存储
+
+==常见的情况 局部数据需要存放在内存中==
+
+* 寄存器不足够存放所有的本地数据
+* 对一个局部变量使用地址运算符 &， 因此必须能够为它产生一个地址
+* 某些局部变量是数组或者结构， 因此必须通过数组 / 结构的引用实现访问
+
+
+
+一般来说，过程通过减少栈指针在栈上分配空间， 分配的结果作为Stack Frame 的一部分
+
+
+
+![image-20211030191757738](csapp_note.assets/image-20211030191757738.png)
+
+
+
+注意这里 为 swap_add 作准备， %rsp 或者栈指针 被减去16， 用来存放两个指针的内容
+
+
+
+
+
+**我们可以再次分析一个案例**
+
+```c
+long call_proc(){
+  long x1 = 1;  int x2 = 2;
+  short x3 = 3; char x4 = 4;
+  proc(x1, &x1, x2, &x2, x3, &x3, x4, &x4);
+  return (x1 + x2) * (x3 - x4);
+}
+```
+
+
+
+<img src="csapp_note.assets/image-20211030192318810.png" alt="image-20211030192318810" style="zoom:50%;" />
+
+
+
+* 将四个指针的值，按照sizeof 的大小进行分配
+
+    
+
+<img src="csapp_note.assets/image-20211030192536608.png" alt="image-20211030192536608" style="zoom:50%;" />
 
 
 
@@ -2357,6 +2448,266 @@ long cmovdiff(long x, long y){
 
 
 
+## 3.8 数组分配和访问
+
+
+
+
+
+C 语言允许对指针进行运算， 而计算出的值会根据该指针引用的数据类型的大小进行伸缩
+
+* 如果 指针类型T， P 指向这个数组
+    * $p + i = x_p + L * i$, 这里 L 是元素的大小
+
+
+
+
+
+历史上来说， C 语言只支持大小在编译时确定的多维数组， 
+
+* 程序员如果需要变长数组的时候， 就需要 malloc 或者 calloc
+
+C99 引入了一种功能， 可以允许数组的维度是表达式，在数组被分配的时候才会计算
+
+* int A[expr] [expr2]
+
+```cpp
+可以写成
+  int val(long n, int A[n][n], long i, long j){
+	  return A[i][j];
+}
+```
+
+==这里注意 n 必须在A[n] [n]之前，这样函数遇到这个数组的时候，就可以知道数组的维度==
+
+
+
+
+
+
+
+## 3.9 异质的数据结构
+
+C 语言中提供了两种将不同类型的对象组合到一起创建数据类型的机构
+
+* 结构 structure 使用 struct 声明
+    * 允许多个对象集合在一个单位中
+* union 使用 union 
+    * 允许不同类型来引用一个对象
+
+
+
+
+
+
+
+### 3.9.1 结构
+
+* 类似数组， 将可能不同类型的对象聚集在一个连续的内存区域内
+* 结构的所有组成部分都存放在内存中一段连续的空间
+* 指向结构的指针就是结构第一个字节的地址
+
+
+
+看个例子
+
+
+
+```cpp
+struct rec{
+  int i;
+  int j;
+  int a[2];
+  int *p;
+}
+```
+
+
+
+![image-20211030193742098](csapp_note.assets/image-20211030193742098.png)
+
+
+
+
+
+
+
+### 3.9.2 Union
+
+* Union 提供了一种方式，能够规避 C 语言的类型系统
+* 允许以多个类型来引用同一个对象
+
+比如如下代码
+
+```cpp
+struct S3{
+  char c;
+  int i[2];
+  double v;
+}
+
+union U3{
+  char c;
+  int i[2];
+  double v;
+}
+```
+
+
+
+
+
+![image-20211030193914042](csapp_note.assets/image-20211030193914042.png)
+
+
+
+* 一个联合的总的大小等于 它最大字段的大小
+
+
+
+>  **我们为啥要用 Union**
+
+* When we know in davance that the use of thwo different fields in a data strcuture will be mutually exclusive
+* Then declaring these thwo fields as part of a union rather than a strcuture will reduce the total space allocated
+
+
+
+比如我们想实现一个 二叉树的结构
+
+```cpp
+struct node_s{
+		struct node_s* left;
+    struct node_s* right;
+  	
+	  double data[2];
+};
+```
+
+如果采用 structu 那么 每个结构需要 32个字节， 但如果 没有数据的话，就会浪费 一半的字节
+
+```c
+union node_u{
+  struct{
+    union node_u* left;
+    union node_u* right;
+  }internal;
+  
+  double data[2]
+}
+```
+
+这样的话，每个节点就需要16个字节
+
+* 如果n是一个指针， 指向 union node_u* 类型
+
+我们就可以使用
+
+```c
+n->data[0], n->data[1] // 引用叶子节点数据
+  n->internal.left
+  n->internal.right
+  来具体引用内部节点
+```
+
+
+
+但是这样的话就没有办法判断给定的节点是不是叶子结点， 还是内部节点， 我们可以使用 枚举类型
+
+
+
+```c
+typedef enum {N_LEAF, N_INTERNAL} nodetype_t;
+
+union node_u{
+  nodetype_t type;
+  union{
+    struct{
+      union node_u* left;
+	    union node_u* right;    
+    }internal;
+		double data[2];
+  }info;
+  
+  double data[2]
+}
+```
+
+  
+
+* 这个结构总共需要 24 个字节
+* type 是 4字节
+* info.internal.left + info.internal.right  或者 double data[2] 各需要16字节
+
+那么总结 4 + 16 + 4pading = 24
+
+
+
+
+
+### 3.9.3 数据对齐
+
+* 要求某种类型对象的地址必须是某个值 K 的倍数
+* 如果处理器需要从内存中取8 个字节， 那么地址必须是 8的倍数
+
+![image-20211030195013917](csapp_note.assets/image-20211030195013917.png)
+
+
+
+
+
+<img src="csapp_note.assets/image-20211030195035818.png" alt="image-20211030195035818" style="zoom:25%;" />
+
+
+
+
+
+
+
+## 3.10 在机器级程序中将控制与数据结构起来
+
+
+
+指针可以用来指向函数
+
+```c
+int fun(int x, int p);
+
+int (*fp)(int ,int *);
+fp = fun;
+
+int y = 1;
+int result = fp(3, &y);
+```
+
+
+
+![image-20211030195427038](csapp_note.assets/image-20211030195427038.png)
+
+
+
+
+
+![image-20211031151715192](csapp_note.assets/image-20211031151715192.png)
+
+
+
+![image-20211031151934921](csapp_note.assets/image-20211031151934921.png)
+
+
+
+![image-20211031151952727](csapp_note.assets/image-20211031151952727.png)
+
+![image-20211031152028629](csapp_note.assets/image-20211031152028629.png)
+
+
+
+
+
+## 3.总结 + 查漏补缺
+
+字节按照具体含义进行翻译， 就成了人类可以阅读的汇编代码
+
+* 可以认为汇编代码就是机器代码的可以读形式
 
 
 
