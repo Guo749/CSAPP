@@ -1,7 +1,7 @@
 #include "cachelab.h"
-#include "unistd.h"
 #include "stdlib.h"
 #include "stdio.h"
+#include "getopt.h"
 
 int main(int argc, char** argv)
 {
@@ -9,11 +9,11 @@ int main(int argc, char** argv)
     int s;
     int e;
     int b;
-    while( (option = getopt(argc, argv, "seb")) != -1){
+    while( (option = getopt(argc, argv, "s:E:b:")) != -1){
         switch (option) {
             case 's':
                 s = atoi(optarg);
-            case 'e':
+            case 'E':
                 e = atoi(optarg);
             case 'b':
                 b = atoi(optarg);
