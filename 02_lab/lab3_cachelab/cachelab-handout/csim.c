@@ -6,18 +6,18 @@
 #include <string.h>
 #define addrLen 8
 
-char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E'};
-char* bin[16] = {"0000", "0001", "0010", "0011", "0100","0101","0110", "0111", "1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111"};
+static int S;
+static int E;
+static int B;
+static int hits = 0;
+static int misses = 0;
+static int evictions = 0;
 
 typedef struct _Node{
-    char tag[100];
+    unsigned tag;
     struct _Node* next;
     struct _Node* prev;
 }Node;
-
-void initializeNode(Node* node, char* tag){
-    strcpy(node->tag, tag);
-}
 
 typedef struct _LRU{
     Node* head;
@@ -25,18 +25,10 @@ typedef struct _LRU{
     int size;
 }LRU;
 
-Node* new(size_t size){
-    Node* res = malloc(size);
-    res->prev = NULL;
-    res->next = NULL;
-    res->tag[0] = '@';
-    return res;
-}
-
 
 void initializeLRU(LRU* lru){
-    lru->head = new(sizeof(lru->head));
-    lru->tail = new(sizeof(lru->tail));
+    lru->head = malloc(sizeof(lru->head));
+    lru->tail = malloc(sizeof(lru->tail));
 
     lru->head->next = lru->tail;
     lru->tail->prev = lru->head;
@@ -70,142 +62,98 @@ void addFirst(LRU* lru, Node* node){
     lru->size += 1;
 }
 
-void parseOption(int* s, int* e, int* b, int argc, char** argv, char** fileName){
+void parseOption(int argc, char** argv, char** fileName){
     int option;
     while( (option = getopt(argc, argv, "s:E:b:t:")) != -1){
         switch (option) {
             case 's':
-                *s = atoi(optarg);
+                S = atoi(optarg);
             case 'E':
-                *e = atoi(optarg);
+                E = atoi(optarg);
             case 'b':
-                *b = atoi(optarg);
+                B = atoi(optarg);
             case 't':
                 strcpy(*fileName, optarg);
         }
     }
 }
 
-void cacheSimulateOne(LRU* curLRU, char* tag, char commandType, int* hits, int* misses, int* evicitons){
-    Node* curNode = curLRU->head->next;
-    int find = 0;
-    while(curNode != curLRU->tail){
-        if(strcmp(curNode->tag, tag) == 0){
-            find = 1;
-            break;
-        }
+void update(unsigned address, LRU** lru){
+    unsigned mask = 0xFFFFFFFF;
+    unsigned maskSet = mask >> (32 - S);
+    unsigned targetSet = (maskSet) & (address >> B);
+    unsigned targetTag = mask & (address >> (S + B));
 
-        curNode = curNode->next;
-    }
 
-    if(find == 1){
-        if(commandType == 'M'){
-            *hits += 2;
-        }else{
-            *hits += 1;
-        }
+    LRU* curLru = lru[targetSet];
+    if(curLru->size == 2){ // full, need to evict
+        deleteElement(curLru, curLru->tail->prev);
+        Node* newNode = malloc(sizeof(Node));
+        newNode->tag = targetTag;
+        addFirst(curLru, newNode);
 
-        //update
-        deleteElement(curLRU, curNode);
-        addFirst(curLRU, curNode);
+        evictions++;
+        misses++;
     }else{
-        Node* node = malloc(sizeof(Node));
-        initializeNode(node, tag);
+        Node* cur = curLru->head->next;
+        int found = 0;
+        while(cur != curLru->tail){
+            if(cur->tag == targetTag){
+                found = 1;
+            }
 
+            cur = cur->next;
+        }
 
-        if(curLRU->size == 2){
-            evict(curLRU);
-            addFirst(curLRU, node);
-            *evicitons += 1;
-            *hits += 1;
-            *misses += 1;
+        if(found){
+            hits++;
+            deleteElement(curLru, cur);
+            addFirst(curLru, cur);
         }else{
-            addFirst(curLRU, node);
-            *misses += 1;
-            *hits += 1;
+            misses++;
+            addFirst(curLru, cur);
         }
-
-        if(commandType == 'M'){
-            *hits += 1;
-        }
-
     }
 }
 
 
-void cacheSimulateWhole(char* fileName, int* hits, int* misses, int* evicitons, int s, int b){
+void cacheSimulateWhole(char* fileName){
     // step1: new lru with s sets
-    LRU lru[s];
-    for(int i = 0; i < s; i++)
+    LRU* lru = malloc(S * sizeof(*lru));
+    for(int i = 0; i < S; i++)
         initializeLRU(&lru[i]);
 
-    // step2: generate
-
-    char* line = NULL;
-    size_t sz;
-    FILE* f = fopen(fileName, "r");
-    ssize_t len = 0;
-
-    while((len = getline(&line, &sz, f)) >= 0){
-        char* addr = malloc(addrLen * sizeof(*addr));
-        int space;
-        char commandType;
-
-        if(line[0] == ' '){ //start with M or L or S
-            space = 2;
-            commandType = line[1];
-        }else{  //start with I
-            space = 1;
-            commandType = 'I';
+    FILE* file = fopen(fileName, "r");
+    char op;
+    unsigned address;
+    int size;
+    // L 10, 1
+    while(fscanf(file, " %c %x,%d", &op, &address, &size) > 0){
+        switch (op) {
+            case 'L':
+                update(address, &lru);
+                break;
+            case 'M':
+                update(address, &lru);
+            case 'S':
+                update(address, &lru);
+                break;
         }
-
-        int index = 0;
-        for(int i = space + 1; line[i] != ',' ; i++){
-            addr[index++] = line[i];
-        }
-        addr[index] = '\0';
-
-        char fullBinary[64];
-        int fullIndex = 0;
-        for(int j = 0; j < addrLen; j++){
-            for(int k = 0; k < 4; k++){
-                fullBinary[fullIndex++] = bin[j][k];
-            }
-        }
-
-        int startPosSet  = 64 - b - s;
-        char tag[100];
-        int setVal = 0;
-        for(int i = 0; i < s; i++){
-            setVal += fullBinary[startPosSet++] - '0';
-            setVal <<= 1;
-        }
-
-        fullBinary[startPosSet] = '\0';
-        strcpy(tag, fullBinary);
-
-        LRU curLRU = lru[setVal];
-        cacheSimulateOne(&curLRU, tag, commandType, hits, misses, evicitons);
     }
-
 }
 
 int main(int argc, char** argv)
 {
 
-    int s;
-    int e;
-    int b;
+
     char* fileName = malloc(100 * sizeof(char));
 
     // step1: parse option
-    parseOption(&s, &e, &b, argc, argv, &fileName);
+    parseOption(argc, argv, &fileName);
 
     // step2: read all of the lines and analyze it
-    int hits = 0;
-    int misses = 0;
-    int evictions = 0;
-    cacheSimulateWhole(fileName, &hits, &misses, &evictions, s, b);
+    cacheSimulateWhole(fileName);
+
     printSummary(hits, misses, evictions);
     return 0;
 }
