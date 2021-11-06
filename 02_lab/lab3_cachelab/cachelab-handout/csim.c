@@ -148,20 +148,19 @@ void cacheSimulateWhole(char* fileName, int* hits, int* misses, int* evicitons, 
 
     while((len = getline(&line, &sz, f)) >= 0){
         char* addr = malloc(addrLen * sizeof(*addr));
-        char* commaPos = strchr(line, ',');
         int space;
         char commandType;
 
         if(line[0] == ' '){ //start with M or L or S
-            space = 1;
+            space = 2;
             commandType = line[1];
         }else{  //start with I
-            space = 2;
+            space = 1;
             commandType = 'I';
         }
 
         int index = 0;
-        for(int i = space; i < space + addrLen; i++){
+        for(int i = space + 1; line[i] != ',' ; i++){
             addr[index++] = line[i];
         }
         addr[index] = '\0';
@@ -197,7 +196,7 @@ int main(int argc, char** argv)
     int s;
     int e;
     int b;
-    char fileName[100];
+    char* fileName = malloc(100 * sizeof(char));
 
     // step1: parse option
     parseOption(&s, &e, &b, argc, argv, &fileName);
