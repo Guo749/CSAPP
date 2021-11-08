@@ -12,7 +12,7 @@ static int B;
 static int hits = 0;
 static int misses = 0;
 static int evictions = 0;
-
+static int totalSet;
 
 typedef struct _Node{
     unsigned tag;
@@ -79,11 +79,14 @@ void parseOption(int argc, char** argv, char** fileName){
                 strcpy(*fileName, optarg);
         }
     }
+
+
+    totalSet = 1 << S;
 }
 void update(unsigned address){
     unsigned mask = 0xFFFFFFFF;
     unsigned maskSet = mask >> (32 - S);
-    unsigned targetSet = ((maskSet) & (address >> B)) % S;
+    unsigned targetSet = ((maskSet) & (address >> B));
     unsigned targetTag = address >> (S + B);
 
     LRU curLru = lru[targetSet];
@@ -129,8 +132,8 @@ void update(unsigned address){
 
 void cacheSimulateWhole(char* fileName){
     // step1: new lru with s sets
-    lru = malloc(S * sizeof(*lru));
-    for(int i = 0; i < S; i++)
+    lru = malloc(totalSet * sizeof(*lru));
+    for(int i = 0; i < totalSet; i++)
         initializeLRU(i);
 
     FILE* file = fopen(fileName, "r");
