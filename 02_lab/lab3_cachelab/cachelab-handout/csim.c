@@ -12,7 +12,7 @@ static int B;
 static int hits = 0;
 static int misses = 0;
 static int evictions = 0;
-
+static int totalSet;
 
 typedef struct _Node{
     unsigned tag;
@@ -23,7 +23,7 @@ typedef struct _Node{
 typedef struct _LRU{
     Node* head;
     Node* tail;
-    int size;
+    int* size;
 }LRU;
 
 static LRU* lru;
@@ -34,7 +34,8 @@ void initializeLRU(int i){
 
     lru[i].head->next = lru[i].tail;
     lru[i].tail->prev = lru[i].head;
-    lru[i].size       = 0;
+    (lru[i].size)     = (int* )malloc(sizeof(int));
+    *(lru[i].size)      = 0;
 }
 
 /**
@@ -44,24 +45,24 @@ void initializeLRU(int i){
  *              0 means the first one
  *              1 means the last one
  */
-void deleteElement(unsigned set, Node* nodeToDel){
+void deleteElement(unsigned set, Node* nodeToDel, LRU* curLru){
     nodeToDel->next->prev = nodeToDel->prev;
     nodeToDel->prev->next = nodeToDel->next;
-    lru->size--;
+    *(curLru->size) = *(curLru->size) - 1;
 }
 
-void evict(unsigned set){
-    deleteElement(set, lru->tail->prev);
+void evict(unsigned set, LRU* curLru){
+    deleteElement(set, curLru->tail->prev, curLru);
 }
 
-void addFirst(unsigned set, Node* node){
-    node->next = lru->head->next;
-    node->prev = lru->head;
+void addFirst(unsigned set, Node* node, LRU* curLru){
+    node->next = curLru->head->next;
+    node->prev = curLru->head;
 
-    lru->head->next->prev = node;
-    lru->head->next       = node;
+    curLru->head->next->prev = node;
+    curLru->head->next       = node;
 
-    lru->size += 1;
+    *(curLru->size) = *(curLru->size) + 1;
 }
 
 void parseOption(int argc, char** argv, char** fileName){
@@ -78,50 +79,61 @@ void parseOption(int argc, char** argv, char** fileName){
                 strcpy(*fileName, optarg);
         }
     }
-}
 
+
+    totalSet = 1 << S;
+}
 void update(unsigned address){
     unsigned mask = 0xFFFFFFFF;
     unsigned maskSet = mask >> (32 - S);
-    unsigned targetSet = (maskSet) & (address >> B);
-    unsigned targetTag = mask & (address >> (S + B));
+    unsigned targetSet = ((maskSet) & (address >> B));
+    unsigned targetTag = address >> (S + B);
 
     LRU curLru = lru[targetSet];
-    if(curLru.size == 2){ // full, need to evict
-        deleteElement(targetSet, curLru.tail->prev);
+    
+    // to find if we have one
+    Node* cur = curLru.head->next;
+    int found = 0;
+    while(cur != curLru.tail){
+        if(cur->tag == targetTag){
+            found = 1;
+	    break;
+        }
+
+        cur = cur->next;
+    }
+
+    
+    if(found){
+        hits++;
+        deleteElement(targetSet, cur, &curLru);
+        addFirst(targetSet, cur, &curLru);
+	printf("hit!, the set number %d \n", targetSet);
+    }else{
+
         Node* newNode = malloc(sizeof(Node));
         newNode->tag = targetTag;
-        addFirst(targetSet, newNode);
+        if(*(curLru.size) == E){ // full, need to evict
+            deleteElement(targetSet, curLru.tail->prev, &curLru);
+            addFirst(targetSet, newNode, &curLru);
 
-        evictions++;
-        misses++;
-    }else{
-        Node* cur = curLru.head->next;
-        int found = 0;
-        while(cur != curLru.tail){
-            if(cur->tag == targetTag){
-                found = 1;
-            }
-
-            cur = cur->next;
-        }
-
-        if(found){
-            hits++;
-            deleteElement(targetSet, cur);
-            addFirst(targetSet, cur);
+            evictions++;
+            misses++;
+	    printf("evic + miss set -> %d\n", targetSet);
         }else{
             misses++;
-            addFirst(targetSet, cur);
-        }
+            addFirst(targetSet, newNode, &curLru);
+            printf("only miss %d\n", targetSet);
+        }    
     }
 }
 
 
+
 void cacheSimulateWhole(char* fileName){
     // step1: new lru with s sets
-    lru = malloc(S * sizeof(*lru));
-    for(int i = 0; i < S; i++)
+    lru = malloc(totalSet * sizeof(*lru));
+    for(int i = 0; i < totalSet; i++)
         initializeLRU(i);
 
     FILE* file = fopen(fileName, "r");
@@ -130,7 +142,8 @@ void cacheSimulateWhole(char* fileName){
     int size;
     // L 10, 1
     while(fscanf(file, " %c %x,%d", &op, &address, &size) > 0){
-        switch (op) {
+        printf("%c, %x %d\n", op, address, size);
+	switch (op) {
             case 'L':
                 update(address);
                 break;
@@ -140,6 +153,7 @@ void cacheSimulateWhole(char* fileName){
                 update(address);
                 break;
         }
+
     }
 }
 
