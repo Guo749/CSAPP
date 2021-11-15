@@ -95,6 +95,8 @@ pid_t Fork(void);
  */
 int main(int argc, char **argv)
 {
+    pid_t thisPid = getpid();
+    printf("In main pid = %d\n", thisPid);
     char c;
     char cmdline[MAX_LINE];
     int emit_prompt = 1; /* emit prompt (default) */
@@ -174,6 +176,7 @@ void eval(char *cmdline)
     char buf[MAX_LINE];
     int bg;
     pid_t pid;
+    sigset_t mask;
 
     strcpy(buf, cmdline);
     bg = parseline(buf, argv);
@@ -181,22 +184,42 @@ void eval(char *cmdline)
         return;     //ignore the empty lines
     }
 
+
+
     if(!builtin_cmd(argv)){
-        if((pid = Fork()) == 0){ // child is employed to do the dirty work
-            if(execve(argv[0], argv, environ) < 0){
+        sigemptyset(&mask);
+	sigaddset(&mask, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
+
+	pid = Fork();
+	if(pid < 0){
+		unix_error("Fork Failed -.-");
+	}
+
+	if(pid == 0){ // child is employed to do the dirty work
+            if(execvp(argv[0], argv) < 0){
+		sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	        setpgid(0, 0);	
                 printf("%s: Command not found.\n", argv[0]);
-            	return;
+            	exit(1);
 	    }
         }
 
+	printf("after fork, the child pid = %d\n", pid);
+
         /* parent wait for the freground job to be terminated*/
+	if(!bg){
+	    addjob(jobs, pid, FG, cmdline);
+	}else{
+	    addjob(jobs, pid, BG, cmdline);
+	}
+
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
         if(!bg){
-            int status;
-            if(waitpid(pid, &status, 0) < 0){
-                unix_error("waitfg: waitpid error");
-            }
-        }else{ // background
-            printf("%d %s", pid, cmdline);
+            waitfg(pid);
+	}else{ // background
+            printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
         }
     }
 
@@ -318,6 +341,8 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig)
 {
+    printf("----- In Sigchld_handler ------\n");
+    printf("this process id = %d\n", getpid());
     int oldErrno = errno;
 
     pid_t pid;
@@ -339,7 +364,7 @@ void sigchld_handler(int sig)
     }
 
     if(errno != ECHILD)
-        unix_error("Waitpid Error");
+        unix_error("Waitpid Error --");
 
     errno = oldErrno;
 }
@@ -351,6 +376,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig)
 {
+    printf("----- In Sigint_handler ------\n");
     pid_t pid;
     pid = fgpid(jobs);
 
@@ -367,6 +393,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig)
 {
+    printf("----- In Sigstop_handler ------\n");
     pid_t pid;
     pid = fgpid(jobs);
 
@@ -610,7 +637,7 @@ pid_t Waitpid(pid_t pid, int *iptr, int options)
     pid_t retpid;
 
     if ((retpid  = waitpid(pid, iptr, options)) < 0)
-        unix_error("Waitpid error");
+        unix_error("In CMU Waitpid error");
     return(retpid);
 }
 
