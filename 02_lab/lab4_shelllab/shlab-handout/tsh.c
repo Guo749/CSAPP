@@ -13,6 +13,8 @@
 #include <sys/wait.h>
 #include <errno.h>
 
+/* Verbose Option*/
+#define VERBOSE 0
 /* Misc manifest constants */
 #define MAX_LINE    1024   /* max line size */
 #define MAXARGS     128   /* max args on a command line */
@@ -87,8 +89,8 @@ handler_t *Signal(int signum, handler_t *handler);
 
 //helper function copied from csapp.h
 unsigned int Sleep(unsigned int secs);
-pid_t Waitpid(pid_t pid, int *iptr, int options);
 pid_t Fork(void);
+void Printf(char*);
 
 /*
  * main - The shell's main routine
@@ -96,7 +98,6 @@ pid_t Fork(void);
 int main(int argc, char **argv)
 {
     pid_t thisPid = getpid();
-    printf("In main pid = %d\n", thisPid);
     char c;
     char cmdline[MAX_LINE];
     int emit_prompt = 1; /* emit prompt (default) */
@@ -184,46 +185,41 @@ void eval(char *cmdline)
         return;     //ignore the empty lines
     }
 
-
-
     if(!builtin_cmd(argv)){
         sigemptyset(&mask);
-	sigaddset(&mask, SIGCHLD);
-	sigprocmask(SIG_BLOCK, &mask, NULL);
+        sigaddset(&mask, SIGCHLD);
+        sigprocmask(SIG_BLOCK, &mask, NULL);
 
-	pid = Fork();
-	if(pid < 0){
-		unix_error("Fork Failed -.-");
-	}
-
-	if(pid == 0){ // child is employed to do the dirty work
-            if(execvp(argv[0], argv) < 0){
-		sigprocmask(SIG_UNBLOCK, &mask, NULL);
-	        setpgid(0, 0);	
-                printf("%s: Command not found.\n", argv[0]);
-            	exit(1);
-	    }
+        pid = Fork();
+        if(pid < 0){
+            unix_error("Fork Failed -.-");
         }
 
-	printf("after fork, the child pid = %d\n", pid);
+        if(pid == 0){ // child is employed to do the dirty work
+            if(execvp(argv[0], argv) < 0){
+                sigprocmask(SIG_UNBLOCK, &mask, NULL);
+                setpgid(0, 0);
+                printf("%s: Command not found.\n", argv[0]);
+                exit(1);
+            }
+        }
 
         /* parent wait for the freground job to be terminated*/
-	if(!bg){
-	    addjob(jobs, pid, FG, cmdline);
-	}else{
-	    addjob(jobs, pid, BG, cmdline);
-	}
+        if(!bg){
+            addjob(jobs, pid, FG, cmdline);
+        }else{
+            addjob(jobs, pid, BG, cmdline);
+        }
 
-	sigprocmask(SIG_UNBLOCK, &mask, NULL);
+        sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
         if(!bg){
             waitfg(pid);
-	}else{ // background
+        }else{ // background
             printf("[%d] (%d) %s", pid2jid(pid), pid, cmdline);
         }
     }
-
-    return;
+    
 }
 
 /*
@@ -339,36 +335,39 @@ void waitfg(pid_t pid)
  *     available zombie children, but doesn't wait for any other
  *     currently running children to terminate.
  */
-void sigchld_handler(int sig)
-{
-    printf("----- In Sigchld_handler ------\n");
-    printf("this process id = %d\n", getpid());
+void sigchld_handler(int sig) {
+    Printf("----- In Sigchld_handler ------\n");
     int oldErrno = errno;
 
     pid_t pid;
     int status;
 
-    while((pid = Waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0){
-        if(WIFEXITED(status)){ // child exist using exist function
+    sigset_t mask_all, prev_all;
+    sigfillset(&mask_all);
 
+    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0) {
+        sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
+        if (WIFEXITED(status)) { // child exist using exist function
+            Printf("exit successfully\n");
             deletejob(jobs, pid);
 
-        }else if(WIFSIGNALED(status)){ //child terminated by signal
-
+        } else if (WIFSIGNALED(status)) { //child terminated by signal
+            Printf("signaled terminated successfully\n");
             deletejob(jobs, pid);
 
-        }else if(WIFSTOPPED(status)) { // child has been stopped
-            struct job_t* job = getjobpid(jobs, pid);
+        } else if (WIFSTOPPED(status)) { // child has been stopped
+            struct job_t *job = getjobpid(jobs, pid);
             job->state = ST;
         }
+        Printf("go here \n");
+        sigprocmask(SIG_SETMASK, &prev_all, NULL);
     }
 
-    if(errno != ECHILD)
+    if (errno != ECHILD)
         unix_error("Waitpid Error --");
 
     errno = oldErrno;
 }
-
 /*
  * sigint_handler - The kernel sends a SIGINT to the shell whenver the
  *    user types ctrl-c at the keyboard.  Catch it and send it along
@@ -376,7 +375,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig)
 {
-    printf("----- In Sigint_handler ------\n");
+    Printf("----- In Sigint_handler ------\n");
     pid_t pid;
     pid = fgpid(jobs);
 
@@ -393,7 +392,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig)
 {
-    printf("----- In Sigstop_handler ------\n");
+    Printf("----- In Sigstop_handler ------\n");
     pid_t pid;
     pid = fgpid(jobs);
 
@@ -632,14 +631,6 @@ unsigned int Sleep(unsigned int secs)
     return rc;
 }
 
-pid_t Waitpid(pid_t pid, int *iptr, int options)
-{
-    pid_t retpid;
-
-    if ((retpid  = waitpid(pid, iptr, options)) < 0)
-        unix_error("In CMU Waitpid error");
-    return(retpid);
-}
 
 pid_t Fork(void)
 {
@@ -650,4 +641,8 @@ pid_t Fork(void)
     return pid;
 }
 
-
+void Printf(char* msg){
+    if(VERBOSE == 1){
+        printf("%s\n", msg);
+    }
+}
