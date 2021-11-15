@@ -185,8 +185,8 @@ void eval(char *cmdline)
         if((pid = Fork()) == 0){ // child is employed to do the dirty work
             if(execve(argv[0], argv, environ) < 0){
                 printf("%s: Command not found.\n", argv[0]);
-                exit(0);
-            }
+            	return;
+	    }
         }
 
         /* parent wait for the freground job to be terminated*/
