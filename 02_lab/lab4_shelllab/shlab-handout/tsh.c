@@ -290,6 +290,7 @@ int builtin_cmd(char **argv)
         return 1;
     }else if(strcmp(curCMD, "jobs") == 0){ //
         listjobs(jobs);
+    	return 1;
     }else if(strcmp(curCMD, "quit") == 0){
         exit(0);
     }else if(strcmp(curCMD, "bg") == 0 || strcmp(curCMD, "fg") == 0){
@@ -362,9 +363,6 @@ void sigchld_handler(int sig) {
         Printf("go here \n");
         sigprocmask(SIG_SETMASK, &prev_all, NULL);
     }
-
-    if (errno != ECHILD)
-        unix_error("Waitpid Error --");
 
     errno = oldErrno;
 }
