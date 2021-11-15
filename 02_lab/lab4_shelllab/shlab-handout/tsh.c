@@ -12,7 +12,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
-#include "csapp.h"
 
 /* Misc manifest constants */
 #define MAX_LINE    1024   /* max line size */
@@ -52,6 +51,7 @@ struct job_t {              /* The job struct */
 struct job_t jobs[MAXJOBS]; /* The job list */
 /* End global variables */
 
+
 /* Function prototypes */
 
 /* Here are the functions that you will implement */
@@ -86,9 +86,9 @@ typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 
 //helper function copied from csapp.h
+unsigned int Sleep(unsigned int secs);
 pid_t Waitpid(pid_t pid, int *iptr, int options);
 pid_t Fork(void);
-unsigned int Sleep(unsigned int secs);
 
 /*
  * main - The shell's main routine
@@ -596,16 +596,6 @@ void sigquit_handler(int sig)
 }
 
 
-
-pid_t Fork(void)
-{
-    pid_t pid;
-
-    if ((pid = fork()) < 0)
-        unix_error("Fork error");
-    return pid;
-}
-
 unsigned int Sleep(unsigned int secs)
 {
     unsigned int rc;
@@ -623,3 +613,14 @@ pid_t Waitpid(pid_t pid, int *iptr, int options)
         unix_error("Waitpid error");
     return(retpid);
 }
+
+pid_t Fork(void)
+{
+    pid_t pid;
+
+    if ((pid = fork()) < 0)
+        unix_error("Fork error");
+    return pid;
+}
+
+

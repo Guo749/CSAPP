@@ -7,9 +7,9 @@ DRIVER = ./sdriver.pl
 TSH = ./tsh
 TSHREF = ./tshref
 TSHARGS = "-p"
-CC = gcc 
+CC = gcc
 CFLAGS = -Wall -O2
-FILES = $(TSH) ./myspin ./mysplit ./mystop ./myint 
+FILES = $(TSH) ./myspin ./mysplit ./mystop ./myint
 
 all: $(FILES)
 
@@ -96,5 +96,6 @@ rtest16:
 # clean up
 clean:
 	rm -f $(FILES) *.o *~
+
 
 
